@@ -1,0 +1,329 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<con:soapui-project activeEnvironment="Default" name="Analytics API" resourceRoot="" soapui-version="5.0.0" abortOnError="false" runType="SEQUENTIAL" xmlns:con="http://eviware.com/soapui/config"><con:settings/><con:testSuite name="Projects"><con:settings/><con:runType>SEQUENTIAL</con:runType><con:testCase failOnError="true" failTestCaseOnErrors="true" keepSession="false" maxResults="0" name="Create Update Delete Proejct" searchProperties="true" id="cacf7cb5-8b7e-4cb4-9dfe-2564b61bb9c4"><con:settings/><con:testStep type="groovy" name="Check for existing access token" disabled="true">
+        <con:settings/>
+        <con:config><script>
+            if(testRunner.testCase.testSuite.project.getPropertyValue( "accesstoken" ) == "")
+            testRunner.gotoStepByName("Get Access Token")
+            else
+            testRunner.gotoStepByName("Get Default User account")
+          </script></con:config>
+      </con:testStep><con:testStep type="httprequest" name="Get Access Token">
+        <con:settings/>
+        <con:config method="POST" xsi:type="con:HttpRequest" name="Get Access Token" postQueryString="false" mediaType="application/json" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+          <con:settings>
+            <con:setting id="com.eviware.soapui.impl.wsdl.WsdlRequest@request-headers">&lt;xml-fragment/></con:setting>
+          </con:settings>
+          <con:endpoint>${#Project#tapHost}/api/internal/access-token</con:endpoint>
+          <con:request>
+            {
+            "Username":"${#Project#username}",
+            "Password":"${#Project#password}"
+            }
+          </con:request>
+          <con:assertion type="GroovyScriptAssertion" name="Store access token in property">
+            <con:configuration><scriptText>
+                def response = messageExchange.getResponseContent();
+
+
+
+                messageExchange.modelItem.testStep.testCase.testSuite.project.setPropertyValue("accesstoken", "WRAP access_token=" + response)
+              </scriptText></con:configuration>
+          </con:assertion>
+          
+          <con:assertion type="Simple Contains" name="Contains"><con:configuration><token>schemas.sitefinity.com</token><ignoreCase>false</ignoreCase><useRegEx>false</useRegEx></con:configuration></con:assertion><con:credentials>
+            <con:selectedAuthProfile>Basic</con:selectedAuthProfile><con:addedBasicAuthenticationTypes>Basic</con:addedBasicAuthenticationTypes><con:authType>Global HTTP Settings</con:authType>
+          </con:credentials>
+          <con:jmsConfig JMSDeliveryMode="PERSISTENT"/>
+          <con:jmsPropertyConfig/>
+          <con:parameters/>
+        </con:config>
+      </con:testStep><con:testStep type="httprequest" name="Get Default User account">
+        <con:settings/>
+        <con:config method="GET" xsi:type="con:HttpRequest" name="Get Default User account" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+          <con:settings>
+            <con:setting id="com.eviware.soapui.impl.wsdl.WsdlRequest@request-headers">&lt;xml-fragment xmlns:con="http://eviware.com/soapui/config">
+  &lt;con:entry key="content-type" value="application/json"/>
+  &lt;con:entry key="Authorization" value="${#Project#accesstoken}"/>
+&lt;/xml-fragment></con:setting>
+          </con:settings>
+          <con:endpoint>${#Project#tapHost}/api/accounts/default</con:endpoint>
+          <con:request/>
+          <con:assertion type="Valid HTTP Status Codes" name="Valid HTTP Status Codes">
+            <con:configuration><codes>
+                200
+              </codes></con:configuration>
+          </con:assertion>
+          <con:assertion type="GroovyScriptAssertion" name="Store account id"><con:configuration><scriptText>import groovy.json.JsonSlurper
+
+def account = new JsonSlurper().parseText(messageExchange.responseContent)
+if (account) {
+	log.info(account.id)
+	messageExchange.modelItem.testStep.testCase.testSuite.project.setPropertyValue("accountID", account.id)
+}
+
+</scriptText></con:configuration></con:assertion><con:credentials>
+            <con:selectedAuthProfile>Basic</con:selectedAuthProfile><con:addedBasicAuthenticationTypes>Basic</con:addedBasicAuthenticationTypes><con:authType>Global HTTP Settings</con:authType>
+          </con:credentials>
+          <con:jmsConfig JMSDeliveryMode="PERSISTENT"/>
+          <con:jmsPropertyConfig/>
+          <con:parameters/>
+        </con:config>
+      </con:testStep><con:testStep type="httprequest" name="Get Account Workspace"><con:settings/><con:config method="GET" xsi:type="con:HttpRequest" name="Get Account Workspace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><con:settings><con:setting id="com.eviware.soapui.impl.wsdl.WsdlRequest@request-headers">&lt;xml-fragment xmlns:con="http://eviware.com/soapui/config">
+  &lt;con:entry key="content-type" value="application/json"/>
+  &lt;con:entry key="Authorization" value="${#Project#accesstoken}"/>
+&lt;/xml-fragment></con:setting></con:settings><con:endpoint>${#Project#tapHost}/api/v1/accounts/${#Project#accountId}/workspaces</con:endpoint><con:request/><con:assertion type="GroovyScriptAssertion" name="Store Friends WorkspaceID"><con:configuration><scriptText>import groovy.json.JsonSlurper
+
+	def json = new JsonSlurper().parseText(messageExchange.getResponseContent())
+	log.info(json)
+	assert json.size>0
+	for (workspace in json)
+	{
+		log.info(workspace)
+		if (workspace.name != "Friends App") continue
+		messageExchange.modelItem.testStep.testCase.testSuite.setPropertyValue("workspaceId", workspace.id)	
+		break
+	}
+
+
+	
+	
+              
+
+</scriptText></con:configuration></con:assertion><con:credentials><con:authType>No Authorization</con:authType></con:credentials><con:jmsConfig JMSDeliveryMode="PERSISTENT"/><con:jmsPropertyConfig/><con:parameters/></con:config></con:testStep><con:testStep type="httprequest" name="Get Service Token for Analytics">
+        <con:settings/>
+        <con:config method="GET" xsi:type="con:HttpRequest" name="Get Service Token for Analytics" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+          <con:settings>
+            <con:setting id="com.eviware.soapui.impl.wsdl.WsdlRequest@request-headers">&lt;xml-fragment xmlns:con="http://eviware.com/soapui/config">
+  &lt;con:entry key="content-type" value="application/json"/>
+  &lt;con:entry key="Authorization" value="${#Project#accesstoken}"/>
+&lt;/xml-fragment></con:setting>
+          </con:settings>
+          <con:endpoint>${#Project#tapHost}/api/auth/analytics</con:endpoint>
+          <con:request/>
+          <con:assertion type="Valid HTTP Status Codes" name="Valid HTTP Status Codes">
+            <con:configuration>
+              <codes>
+                200
+              </codes>
+            </con:configuration>
+          </con:assertion>
+          <con:assertion type="GroovyScriptAssertion" name="Store acquired token">
+            <con:configuration><scriptText>
+                def response = messageExchange.getResponseContent();
+
+                messageExchange.modelItem.testStep.testCase.testSuite.setPropertyValue("serviceToken",  response)
+              </scriptText></con:configuration>
+          </con:assertion>
+          <con:assertion type="Simple Contains" name="Contains">
+            <con:configuration><token>schemas.sitefinity.com</token><ignoreCase>false</ignoreCase><useRegEx>false</useRegEx></con:configuration>
+          </con:assertion>
+          <con:credentials>
+            <con:selectedAuthProfile>Basic</con:selectedAuthProfile><con:addedBasicAuthenticationTypes>Basic</con:addedBasicAuthenticationTypes><con:authType>Global HTTP Settings</con:authType>
+          </con:credentials>
+          <con:jmsConfig JMSDeliveryMode="PERSISTENT"/>
+          <con:jmsPropertyConfig/>
+          <con:parameters/>
+        </con:config>
+      </con:testStep><con:testStep type="groovy" name="Generate Unique Project Name Suffix"><con:settings/><con:config><script>testRunner.testCase.testSuite.setPropertyValue("uniqueSuffix", new Date().toString().replaceAll("\\s","").replaceAll(":",""))</script></con:config></con:testStep><con:testStep type="httprequest" name="Create Analytics Project">
+        <con:settings/>
+        <con:config method="POST" xsi:type="con:HttpRequest" name="Create Analytics Project" postQueryString="false" mediaType="application/json" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+          <con:settings>
+            <con:setting id="com.eviware.soapui.impl.wsdl.WsdlRequest@request-headers">&lt;xml-fragment xmlns:con="http://eviware.com/soapui/config">
+  &lt;con:entry key="content-type" value="application/json"/>
+  &lt;con:entry key="Authorization" value="${#TestSuite#serviceToken}"/>
+&lt;/xml-fragment></con:setting>
+            <con:setting id="com.eviware.soapui.impl.support.AbstractHttpRequest@follow-redirects">true</con:setting>
+          </con:settings>
+          <con:endpoint>${#Project#host}/api/projects</con:endpoint>
+          <con:request>{
+"AccountId":"${#Project#accountID}",
+"Type":"DotNet",
+"Name":AnalyticsSoapUI${#TestSuite#uniqueSuffix},
+"Description":"SoapUI created analytics project",
+"WorkspaceId":${#TestSuite#workspaceId}
+}</con:request>
+          <con:assertion type="Valid HTTP Status Codes" name="Valid HTTP Status Codes">
+            <con:configuration><codes>200</codes></con:configuration>
+          </con:assertion>
+          <con:assertion type="GroovyScriptAssertion" name="Store and assert project data">
+            <con:configuration><scriptText>
+                import groovy.json.JsonSlurper
+
+                def response = messageExchange.getResponseContent()
+                def accountId, projectId
+                def json = new JsonSlurper().parseText(response)
+
+
+                projectId = json.Id
+                assert projectId != null
+
+                accountId = json.AccountId
+                assert accountId == messageExchange.modelItem.testStep.testCase.testSuite.project.getPropertyValue("accountID").toString().replace("-", "")
+
+                log.info(accountId)
+                log.info(projectId)
+                log.info(response)
+
+                messageExchange.modelItem.testStep.testCase.testSuite.setPropertyValue("ProjectID", projectId)
+                messageExchange.modelItem.testStep.testCase.testSuite.setPropertyValue("ProjectName", json.Name)
+
+                assert json.Description == "SoapUI created analytics project"
+
+
+              </scriptText></con:configuration>
+          </con:assertion>
+          <con:credentials>
+            <con:selectedAuthProfile>Basic</con:selectedAuthProfile><con:addedBasicAuthenticationTypes>Basic</con:addedBasicAuthenticationTypes><con:authType>Global HTTP Settings</con:authType>
+          </con:credentials>
+          <con:jmsConfig JMSDeliveryMode="PERSISTENT"/>
+          <con:jmsPropertyConfig/>
+          <con:parameters/>
+        </con:config>
+      </con:testStep><con:testStep type="httprequest" name="Verify Project Exists">
+        <con:settings/>
+        <con:config method="GET" xsi:type="con:HttpRequest" name="Verify Project Exists" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+          <con:description>Get the project from the platform</con:description>
+          <con:settings>
+            <con:setting id="com.eviware.soapui.impl.wsdl.WsdlRequest@request-headers">&lt;xml-fragment xmlns:con="http://eviware.com/soapui/config">
+  &lt;con:entry key="content-type" value="application/json"/>
+  &lt;con:entry key="authorization" value="${#Project#accesstoken}"/>
+&lt;/xml-fragment></con:setting>
+          </con:settings>
+          <con:endpoint>${#Project#host}/api/projects/${#TestSuite#ProjectID}</con:endpoint>
+          <con:request/>
+          <con:assertion type="Valid HTTP Status Codes" name="Valid HTTP Status Codes">
+            <con:configuration><codes>
+                200
+              </codes></con:configuration>
+          </con:assertion>
+          
+          
+          <con:assertion type="GroovyScriptAssertion" name="Store modified date"><con:configuration><scriptText>import groovy.json.JsonSlurper
+
+def project = new JsonSlurper().parseText(messageExchange.responseContent)
+
+//assert project.createdByName == "SoapUI Test Tap User"
+//messageExchange.modelItem.testStep.testCase.testSuite.setPropertyValue("initialModifiedDate", project.modifiedAt)
+//messageExchange.modelItem.testStep.testCase.testSuite.project.setPropertyValue("projectID", project.id)
+
+log.info(project.Id)
+
+
+</scriptText></con:configuration></con:assertion><con:credentials>
+            <con:selectedAuthProfile>Basic</con:selectedAuthProfile><con:addedBasicAuthenticationTypes>Basic</con:addedBasicAuthenticationTypes><con:authType>Global HTTP Settings</con:authType>
+          </con:credentials>
+          <con:jmsConfig JMSDeliveryMode="PERSISTENT"/>
+          <con:jmsPropertyConfig/>
+          <con:parameters/>
+        </con:config>
+      </con:testStep><con:testStep type="httprequest" name="Edit Project">
+        <con:settings/>
+        <con:config method="PUT" xsi:type="con:HttpRequest" name="Edit Project" postQueryString="false" mediaType="application/xml" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+          <con:settings>
+            <con:setting id="com.eviware.soapui.impl.wsdl.WsdlRequest@request-headers">&lt;xml-fragment xmlns:con="http://eviware.com/soapui/config">
+  &lt;con:entry key="content-type" value="application/json"/>
+  &lt;con:entry key="Authorization" value="${#TestSuite#serviceToken}"/>
+&lt;/xml-fragment></con:setting>
+          </con:settings>
+          <con:endpoint>${#Project#host}/api/projects/${#TestSuite#ProjectID}</con:endpoint>
+          <con:request>{
+"Name":"AnalyticsSoapUIEditedProject${#TestSuite#uniqueSuffix}",
+"Description":"Analytics project edited"
+}</con:request>
+          <con:assertion type="Valid HTTP Status Codes" name="Valid HTTP Status Codes">
+            <con:configuration>
+              <codes>
+                200
+              </codes>
+            </con:configuration>
+          </con:assertion>
+          <con:credentials>
+            <con:selectedAuthProfile>Basic</con:selectedAuthProfile><con:addedBasicAuthenticationTypes>Basic</con:addedBasicAuthenticationTypes><con:authType>Global HTTP Settings</con:authType>
+          </con:credentials>
+          <con:jmsConfig JMSDeliveryMode="PERSISTENT"/>
+          <con:jmsPropertyConfig/>
+          <con:parameters/>
+        </con:config>
+      </con:testStep><con:testStep type="httprequest" name="Verify Project Updates">
+        <con:settings/>
+        <con:config method="GET" xsi:type="con:HttpRequest" name="Verify Project Updates" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+          <con:description>Get the project from the platform</con:description>
+          <con:settings>
+            <con:setting id="com.eviware.soapui.impl.wsdl.WsdlRequest@request-headers">&lt;xml-fragment xmlns:con="http://eviware.com/soapui/config">
+  &lt;con:entry key="content-type" value="application/json"/>
+  &lt;con:entry key="authorization" value="${#Project#accesstoken}"/>
+&lt;/xml-fragment></con:setting>
+          </con:settings>
+          <con:endpoint>${#Project#host}/api/projects/${#TestSuite#ProjectID}</con:endpoint>
+          <con:request/>
+          <con:assertion type="Valid HTTP Status Codes" name="Valid HTTP Status Codes">
+            <con:configuration>
+              <codes>
+                200
+              </codes>
+            </con:configuration>
+          </con:assertion>
+          
+          
+          <con:assertion type="GroovyScriptAssertion" name="Store modified date"><con:configuration><scriptText>import groovy.json.JsonSlurper
+
+	def project = new JsonSlurper().parseText(messageExchange.responseContent)
+	
+	assert project.Name == "AnalyticsSoapUIEditedProject" + messageExchange.modelItem.testStep.testCase.testSuite.getPropertyValue("uniqueSuffix")
+	assert project.Description == "Analytics project edited"
+</scriptText></con:configuration></con:assertion><con:credentials>
+            <con:selectedAuthProfile>Basic</con:selectedAuthProfile><con:addedBasicAuthenticationTypes>Basic</con:addedBasicAuthenticationTypes><con:authType>Global HTTP Settings</con:authType>
+          </con:credentials>
+          <con:jmsConfig JMSDeliveryMode="PERSISTENT"/>
+          <con:jmsPropertyConfig/>
+          <con:parameters/>
+        </con:config>
+      </con:testStep><con:testStep type="httprequest" name="Delete Project">
+        <con:settings/>
+        <con:config method="DELETE" xsi:type="con:HttpRequest" name="Delete Project" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+          <con:settings>
+            <con:setting id="com.eviware.soapui.impl.wsdl.WsdlRequest@request-headers">&lt;xml-fragment xmlns:con="http://eviware.com/soapui/config">
+  &lt;con:entry key="content-type" value="application/json"/>
+  &lt;con:entry key="Authorization" value="${#TestSuite#serviceToken}"/>
+&lt;/xml-fragment></con:setting>
+          </con:settings>
+          <con:endpoint>${#Project#host}/api/projects/${#TestSuite#projectID}</con:endpoint>
+          <con:request/>
+          <con:assertion type="Valid HTTP Status Codes" name="Valid HTTP Status Codes">
+            <con:configuration>
+              <codes>200</codes>
+            </con:configuration>
+          </con:assertion>
+          <con:credentials>
+            <con:selectedAuthProfile>Basic</con:selectedAuthProfile><con:addedBasicAuthenticationTypes>Basic</con:addedBasicAuthenticationTypes><con:authType>Global HTTP Settings</con:authType>
+          </con:credentials>
+          <con:jmsConfig JMSDeliveryMode="PERSISTENT"/>
+          <con:jmsPropertyConfig/>
+          <con:parameters/>
+        </con:config>
+      </con:testStep><con:testStep type="httprequest" name="Verify Project Is Deleted">
+        <con:settings/>
+        <con:config method="GET" xsi:type="con:HttpRequest" name="Verify Project Is Deleted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+          <con:description>Get the project from the platform</con:description>
+          <con:settings>
+            <con:setting id="com.eviware.soapui.impl.wsdl.WsdlRequest@request-headers">&lt;xml-fragment xmlns:con="http://eviware.com/soapui/config">
+  &lt;con:entry key="content-type" value="application/json"/>
+  &lt;con:entry key="authorization" value="${#Project#accesstoken}"/>
+&lt;/xml-fragment></con:setting>
+          </con:settings>
+          <con:endpoint>${#Project#host}/api/projects/${#TestSuite#ProjectID}</con:endpoint>
+          <con:request/>
+          
+          
+          
+          <con:assertion type="GroovyScriptAssertion" name="Script Assertion"><con:configuration><scriptText>import groovy.json.JsonSlurper
+
+	assert messageExchange.responseContent == null
+</scriptText></con:configuration></con:assertion><con:credentials>
+            <con:selectedAuthProfile>Basic</con:selectedAuthProfile><con:addedBasicAuthenticationTypes>Basic</con:addedBasicAuthenticationTypes><con:authType>Global HTTP Settings</con:authType>
+          </con:credentials>
+          <con:jmsConfig JMSDeliveryMode="PERSISTENT"/>
+          <con:jmsPropertyConfig/>
+          <con:parameters/>
+        </con:config>
+      </con:testStep><con:properties><con:property><con:name>workspaceId</con:name><con:value>ef2d6706-7737-4ef3-86fd-15a6d9248c5f</con:value></con:property><con:property><con:name>uniqueSuffix</con:name><con:value>FriApr25170255EEST2014</con:value></con:property></con:properties></con:testCase><con:properties><con:property><con:name>workspaceId</con:name><con:value>ef2d6706-7737-4ef3-86fd-15a6d9248c5f</con:value></con:property><con:property><con:name>serviceToken</con:name><con:value><![CDATA[WRAP access_token=http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2fname=soapui.analytics%40telerik.local&http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2femailaddress=soapui.analytics%40telerik.local&http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2fprivatepersonalidentifier=9d672a74-333d-4eb3-b6b6-dd5cab5cf30a&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fuserid=9d672a74-333d-4eb3-b6b6-dd5cab5cf30a&http%3a%2f%2fschemas.telerik.com%2f2013%2f05%2fidentity%2fclaims%2fcrmuserid=1723392&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fdomain=&http%3a%2f%2fschemas.telerik.com%2f2012%2f03%2fidentity%2fclaims%2fdomain=&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fissuedate=2014-04-25+15%3a58%3a52Z&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fstatus=1&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fidentityprovider=Telerik&http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2fgivenname=SoapUI&http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2fsurname=Test+User&TokenId=2a4736a8-7ff4-498a-aebe-497cdd5bc8a6&Issuer=https%3a%2f%2flocaltfis.telerik.com%2fAuthenticate%2fWRAPv0.9&Audience=uri%3aappshell&ExpiresOn=1398445133&HMACSHA256=Se2Xo452aanlintbRzSBrxGVxYs6BKiGLounMeP%2bJnM%3d]]></con:value></con:property><con:property><con:name>uniqueSuffix</con:name><con:value>FriApr25185857EEST2014</con:value></con:property><con:property><con:name>ProjectID</con:name><con:value>a53702e1faad4b008d124a3c65c38e24</con:value></con:property><con:property><con:name>ProjectName</con:name><con:value>AnalyticsSoapUIFriApr25185857EEST2014</con:value></con:property></con:properties></con:testSuite><con:properties><con:property><con:name>host</con:name><con:value>https://devtap.telerik.com/analytics</con:value></con:property><con:property><con:name>username</con:name><con:value>soapui.analytics@telerik.local</con:value></con:property><con:property><con:name>password</con:name><con:value>12345</con:value></con:property><con:property><con:name>tapHost</con:name><con:value>https://devtap.telerik.com</con:value></con:property><con:property><con:name>accesstoken</con:name><con:value><![CDATA[WRAP access_token=http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2fname=soapui.analytics%40telerik.local&http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2femailaddress=soapui.analytics%40telerik.local&http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2fprivatepersonalidentifier=9d672a74-333d-4eb3-b6b6-dd5cab5cf30a&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fuserid=9d672a74-333d-4eb3-b6b6-dd5cab5cf30a&http%3a%2f%2fschemas.telerik.com%2f2013%2f05%2fidentity%2fclaims%2fcrmuserid=1723392&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fdomain=&http%3a%2f%2fschemas.telerik.com%2f2012%2f03%2fidentity%2fclaims%2fdomain=&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fissuedate=2014-04-25+15%3a58%3a52Z&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fstatus=1&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fidentityprovider=Telerik&http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2fgivenname=SoapUI&http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2fsurname=Test+User&TokenId=2a4736a8-7ff4-498a-aebe-497cdd5bc8a6&Issuer=https%3a%2f%2flocaltfis.telerik.com%2fAuthenticate%2fWRAPv0.9&Audience=uri%3aappshell&ExpiresOn=1398445133&HMACSHA256=Se2Xo452aanlintbRzSBrxGVxYs6BKiGLounMeP%2bJnM%3d]]></con:value></con:property><con:property><con:name>accountID</con:name><con:value>ea9abfd6-6910-4660-9e63-f293325231a3</con:value></con:property></con:properties><con:wssContainer/><con:oAuth2ProfileContainer/><con:sensitiveInformation/></con:soapui-project>
