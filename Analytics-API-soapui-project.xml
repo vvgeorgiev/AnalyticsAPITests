@@ -179,7 +179,7 @@ if (account) {
           <con:jmsPropertyConfig/>
           <con:parameters/>
         </con:config>
-      </con:testStep><con:testStep type="httprequest" name="Verify Project Exists">
+      </con:testStep><con:testStep type="delay" name="Wait After Create"><con:settings/><con:config><delay>1000</delay></con:config></con:testStep><con:testStep type="httprequest" name="Verify Project Exists">
         <con:settings/>
         <con:config method="GET" xsi:type="con:HttpRequest" name="Verify Project Exists" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
           <con:description>Get the project from the platform</con:description>
@@ -198,17 +198,14 @@ if (account) {
           </con:assertion>
           
           
-          <con:assertion type="GroovyScriptAssertion" name="Store modified date"><con:configuration><scriptText>import groovy.json.JsonSlurper
+          <con:assertion type="GroovyScriptAssertion" name="Raise &quot;created&quot; flag if project exists"><con:configuration><scriptText>import groovy.json.JsonSlurper
 
 def project = new JsonSlurper().parseText(messageExchange.responseContent)
-
-//assert project.createdByName == "SoapUI Test Tap User"
-//messageExchange.modelItem.testStep.testCase.testSuite.setPropertyValue("initialModifiedDate", project.modifiedAt)
-//messageExchange.modelItem.testStep.testCase.testSuite.project.setPropertyValue("projectID", project.id)
-
 log.info(project.Id)
-
-
+if (project.Id != null)
+{
+	messageExchange.modelItem.testStep.testCase.testSuite.setPropertyValue("created", "true");
+}
 </scriptText></con:configuration></con:assertion><con:credentials>
             <con:selectedAuthProfile>Basic</con:selectedAuthProfile><con:addedBasicAuthenticationTypes>Basic</con:addedBasicAuthenticationTypes><con:authType>Global HTTP Settings</con:authType>
           </con:credentials>
@@ -216,7 +213,34 @@ log.info(project.Id)
           <con:jmsPropertyConfig/>
           <con:parameters/>
         </con:config>
-      </con:testStep><con:testStep type="httprequest" name="Edit Project">
+      </con:testStep><con:testStep type="groovy" name="Poll For Created Project"><con:settings/><con:config><script>
+            def count = testRunner.testCase.testSuite.getPropertyValue("counter").toInteger()
+
+            def content = testRunner.testCase.testSuite.getPropertyValue("created")
+            log.info(content.toString())
+
+            if (count &lt; testRunner.testCase.testSuite.project.getPropertyValue("maxPollCount").toInteger())
+            {
+            if(content == "true")
+            {
+            assert content == "true"
+            testRunner.testCase.testSuite.setPropertyValue( "counter", "0" )
+            testRunner.gotoStepByName("Edit Project")
+            }
+            else
+            {
+            testRunner.testCase.testSuite.setPropertyValue( "counter", (count + 1).toString() )
+            log.info("polling counter for create:" + testRunner.testCase.testSuite.getPropertyValue("counter"))
+            testRunner.gotoStepByName("Wait After Create")
+            }
+            }
+            else
+            {
+            log.info("Polling for Create Analytics Project failed.")
+            testRunner.testCase.testSuite.setPropertyValue( "counter", "0")
+            assert content == "true"	// polling failed
+            }
+          </script></con:config></con:testStep><con:testStep type="httprequest" name="Edit Project">
         <con:settings/>
         <con:config method="PUT" xsi:type="con:HttpRequest" name="Edit Project" postQueryString="false" mediaType="application/xml" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
           <con:settings>
@@ -244,7 +268,7 @@ log.info(project.Id)
           <con:jmsPropertyConfig/>
           <con:parameters/>
         </con:config>
-      </con:testStep><con:testStep type="httprequest" name="Verify Project Updates">
+      </con:testStep><con:testStep type="delay" name="Wait After Edit"><con:settings/><con:config><delay>1000</delay></con:config></con:testStep><con:testStep type="httprequest" name="Verify Project Updates">
         <con:settings/>
         <con:config method="GET" xsi:type="con:HttpRequest" name="Verify Project Updates" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
           <con:description>Get the project from the platform</con:description>
@@ -265,20 +289,42 @@ log.info(project.Id)
           </con:assertion>
           
           
-          <con:assertion type="GroovyScriptAssertion" name="Store modified date"><con:configuration><scriptText>import groovy.json.JsonSlurper
+          <con:assertion type="GroovyScriptAssertion" name="Raise isProjectUpdated flag"><con:configuration><scriptText>import groovy.json.JsonSlurper
 
 	def project = new JsonSlurper().parseText(messageExchange.responseContent)
-	
-	assert project.Name == "AnalyticsSoapUIEditedProject" + messageExchange.modelItem.testStep.testCase.testSuite.getPropertyValue("uniqueSuffix")
-	assert project.Description == "Analytics project edited"
-</scriptText></con:configuration></con:assertion><con:credentials>
+	log.info(project.Name)
+	if (project.Name == "AnalyticsSoapUIEditedProject" + messageExchange.modelItem.testStep.testCase.testSuite.getPropertyValue("uniqueSuffix"))
+		messageExchange.modelItem.testStep.testCase.testSuite.setPropertyValue("isProjectUpdated", "true");
+	</scriptText></con:configuration></con:assertion><con:credentials>
             <con:selectedAuthProfile>Basic</con:selectedAuthProfile><con:addedBasicAuthenticationTypes>Basic</con:addedBasicAuthenticationTypes><con:authType>Global HTTP Settings</con:authType>
           </con:credentials>
           <con:jmsConfig JMSDeliveryMode="PERSISTENT"/>
           <con:jmsPropertyConfig/>
           <con:parameters/>
         </con:config>
-      </con:testStep><con:testStep type="httprequest" name="Delete Project">
+      </con:testStep><con:testStep type="groovy" name="Poll For Edited Project"><con:settings/><con:config><script>
+            def count = testRunner.testCase.testSuite.getPropertyValue("counter").toInteger()
+
+            def isProjectUpdated = testRunner.testCase.testSuite.getPropertyValue("isProjectUpdated")
+            log.info(isProjectUpdated.toString())
+  
+            if (count &lt; testRunner.testCase.testSuite.project.getPropertyValue("maxPollCount").toInteger())
+            {
+	            if((isProjectUpdated.toString() != "true"))
+	            {
+	            	  testRunner.testCase.testSuite.setPropertyValue( "counter", (count + 1).toString() )
+		            log.info("polling counter for edit:" + testRunner.testCase.testSuite.getPropertyValue("counter"))
+		            testRunner.gotoStepByName("Wait After Edit")
+	            }
+	            // else Success -- project is modified
+	        }
+	        else
+	        {
+	            log.info("Polling for analytics edit project failed.")
+	            testRunner.testCase.testSuite.setPropertyValue( "counter", "0")
+	            assert false	// polling after edit failed; the project was not updated
+            }
+          </script></con:config></con:testStep><con:testStep type="httprequest" name="Delete Project">
         <con:settings/>
         <con:config method="DELETE" xsi:type="con:HttpRequest" name="Delete Project" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
           <con:settings>
@@ -301,7 +347,7 @@ log.info(project.Id)
           <con:jmsPropertyConfig/>
           <con:parameters/>
         </con:config>
-      </con:testStep><con:testStep type="httprequest" name="Verify Project Is Deleted">
+      </con:testStep><con:testStep type="delay" name="Wait After Project Deleted"><con:settings/><con:config><delay>1000</delay></con:config></con:testStep><con:testStep type="httprequest" name="Verify Project Is Deleted">
         <con:settings/>
         <con:config method="GET" xsi:type="con:HttpRequest" name="Verify Project Is Deleted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
           <con:description>Get the project from the platform</con:description>
@@ -316,9 +362,9 @@ log.info(project.Id)
           
           
           
-          <con:assertion type="GroovyScriptAssertion" name="Script Assertion"><con:configuration><scriptText>import groovy.json.JsonSlurper
-
-	assert messageExchange.responseContent == null
+          <con:assertion type="GroovyScriptAssertion" name="Script Assertion"><con:configuration><scriptText>
+	if (messageExchange.responseContent == null)
+		messageExchange.modelItem.testStep.testCase.testSuite.setPropertyValue("isProjectDeleted", "true");
 </scriptText></con:configuration></con:assertion><con:credentials>
             <con:selectedAuthProfile>Basic</con:selectedAuthProfile><con:addedBasicAuthenticationTypes>Basic</con:addedBasicAuthenticationTypes><con:authType>Global HTTP Settings</con:authType>
           </con:credentials>
@@ -326,4 +372,26 @@ log.info(project.Id)
           <con:jmsPropertyConfig/>
           <con:parameters/>
         </con:config>
-      </con:testStep><con:properties><con:property><con:name>workspaceId</con:name><con:value>ef2d6706-7737-4ef3-86fd-15a6d9248c5f</con:value></con:property><con:property><con:name>uniqueSuffix</con:name><con:value>FriApr25170255EEST2014</con:value></con:property></con:properties></con:testCase><con:properties><con:property><con:name>workspaceId</con:name><con:value>0a3f50c6-de93-4dae-a952-371ef0760585</con:value></con:property><con:property><con:name>serviceToken</con:name><con:value><![CDATA[WRAP access_token=http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2fname=soapui.analytics%40telerik.local&http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2femailaddress=soapui.analytics%40telerik.local&http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2fprivatepersonalidentifier=9d672a74-333d-4eb3-b6b6-dd5cab5cf30a&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fuserid=9d672a74-333d-4eb3-b6b6-dd5cab5cf30a&http%3a%2f%2fschemas.telerik.com%2f2013%2f05%2fidentity%2fclaims%2fcrmuserid=1723392&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fdomain=&http%3a%2f%2fschemas.telerik.com%2f2012%2f03%2fidentity%2fclaims%2fdomain=&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fissuedate=2014-04-28+13%3a46%3a16Z&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fstatus=1&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fidentityprovider=Telerik&http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2fgivenname=SoapUI&http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2fsurname=Test+User&TokenId=b545c84b-03d1-4dab-b383-9617909e4e3c&Issuer=https%3a%2f%2flocaltfis.telerik.com%2fAuthenticate%2fWRAPv0.9&Audience=uri%3aappshell&ExpiresOn=1398696376&HMACSHA256=Dq89yxOKm4OHga8hf1r8k%2bqu1ZNVAjRAC%2fa6LNaihhQ%3d]]></con:value></con:property><con:property><con:name>uniqueSuffix</con:name><con:value>MonApr28164618EEST2014</con:value></con:property><con:property><con:name>ProjectID</con:name><con:value>75af12c5489747b6bec874e569769807</con:value></con:property><con:property><con:name>ProjectName</con:name><con:value>AnalyticsSoapUIMonApr28164618EEST2014</con:value></con:property></con:properties></con:testSuite><con:properties><con:property><con:name>host</con:name><con:value/></con:property><con:property><con:name>username</con:name><con:value>soapui.analytics@telerik.local</con:value></con:property><con:property><con:name>password</con:name><con:value>12345</con:value></con:property><con:property><con:name>tapHost</con:name><con:value>https://integrationtap.telerik.com</con:value></con:property><con:property><con:name>accesstoken</con:name><con:value><![CDATA[WRAP access_token=http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2fname=soapui.analytics%40telerik.local&http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2femailaddress=soapui.analytics%40telerik.local&http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2fprivatepersonalidentifier=9d672a74-333d-4eb3-b6b6-dd5cab5cf30a&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fuserid=9d672a74-333d-4eb3-b6b6-dd5cab5cf30a&http%3a%2f%2fschemas.telerik.com%2f2013%2f05%2fidentity%2fclaims%2fcrmuserid=1723392&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fdomain=&http%3a%2f%2fschemas.telerik.com%2f2012%2f03%2fidentity%2fclaims%2fdomain=&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fissuedate=2014-04-28+13%3a51%3a58Z&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fstatus=1&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fidentityprovider=Telerik&http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2fgivenname=SoapUI&http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2fsurname=Test+User&TokenId=06a1567a-8b22-43c2-8d8c-e4fa3a94bdf8&Issuer=https%3a%2f%2flocaltfis.telerik.com%2fAuthenticate%2fWRAPv0.9&Audience=uri%3aappshell&ExpiresOn=1398696719&HMACSHA256=TJmoKp%2fJiPCqfXMaJFolMKHIT8Py3d21rOmUz0jPdUw%3d]]></con:value></con:property><con:property><con:name>accountID</con:name><con:value>c6cfbe42-4736-4aa5-95c9-0ef5d4f74ca5</con:value></con:property></con:properties><con:wssContainer/><con:oAuth2ProfileContainer/><con:sensitiveInformation/></con:soapui-project>
+      </con:testStep><con:testStep type="groovy" name="Poll For Deleted Project"><con:settings/><con:config><script>
+            def count = testRunner.testCase.testSuite.getPropertyValue("counter").toInteger()
+
+            def isProjectDeleted = testRunner.testCase.testSuite.getPropertyValue("isProjectDeleted")
+            log.info(isProjectDeleted.toString())
+  
+            if (count &lt; testRunner.testCase.testSuite.project.getPropertyValue("maxPollCount").toInteger())
+            {
+	            if((isProjectDeleted.toString() != "true"))
+	            {
+	            	  testRunner.testCase.testSuite.setPropertyValue( "counter", (count + 1).toString() )
+		            log.info("polling counter for delete:" + testRunner.testCase.testSuite.getPropertyValue("counter"))
+		            testRunner.gotoStepByName("Wait After Project Deleted")
+	            }
+	            // else Success -- project is modified
+	        }
+	        else
+	        {
+	            log.info("Polling for project deleted failed.")
+	            testRunner.testCase.testSuite.setPropertyValue( "counter", "0")
+	            assert false	// polling after deletion failed; the project was not deleted
+            }
+          </script></con:config></con:testStep><con:properties><con:property><con:name>workspaceId</con:name><con:value>ef2d6706-7737-4ef3-86fd-15a6d9248c5f</con:value></con:property><con:property><con:name>uniqueSuffix</con:name><con:value>FriApr25170255EEST2014</con:value></con:property><con:property><con:name>content</con:name><con:value>false</con:value></con:property><con:property><con:name>initialModifiedDate</con:name><con:value xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/></con:property></con:properties></con:testCase><con:properties><con:property><con:name>workspaceId</con:name><con:value>01e572c2-a3b5-4d28-8248-af7d5ac24c29</con:value></con:property><con:property><con:name>serviceToken</con:name><con:value><![CDATA[WRAP access_token=http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2fname=soapui.analytics%40telerik.local&http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2femailaddress=soapui.analytics%40telerik.local&http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2fprivatepersonalidentifier=b7bc9706-b12a-432f-8320-393c8e99d415&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fuserid=b7bc9706-b12a-432f-8320-393c8e99d415&http%3a%2f%2fschemas.telerik.com%2f2013%2f05%2fidentity%2fclaims%2fcrmuserid=1716629&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fdomain=&http%3a%2f%2fschemas.telerik.com%2f2012%2f03%2fidentity%2fclaims%2fdomain=&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fissuedate=2014-04-28+16%3a26%3a02Z&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fstatus=1&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fidentityprovider=Telerik&http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2fgivenname=SoapUI&http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2fsurname=Test+User&TokenId=57d500f8-b291-448d-85b9-5a1d734f236c&Issuer=https%3a%2f%2ftesttfis.telerik.com%2fAuthenticate%2fWRAPv0.9&Audience=uri%3aappshell&ExpiresOn=1398705962&HMACSHA256=VWH6TuTPv2azRWjJeS00ZC1ksNGQkKSskMei6pZfSPc%3d]]></con:value></con:property><con:property><con:name>uniqueSuffix</con:name><con:value>MonApr28192606EEST2014</con:value></con:property><con:property><con:name>ProjectID</con:name><con:value>64818aa0db674e5096ae99f03d15c7c6</con:value></con:property><con:property><con:name>ProjectName</con:name><con:value>AnalyticsSoapUIMonApr28192606EEST2014</con:value></con:property><con:property><con:name>counter</con:name><con:value>0</con:value></con:property><con:property><con:name>initialModifiedDate</con:name><con:value xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/></con:property><con:property><con:name>content</con:name><con:value>true</con:value></con:property><con:property><con:name>isProjectUpdated</con:name><con:value>true</con:value></con:property><con:property><con:name>created</con:name><con:value>true</con:value></con:property><con:property><con:name>deleted</con:name><con:value>true</con:value></con:property><con:property><con:name>isProjectDeleted</con:name><con:value>true</con:value></con:property></con:properties></con:testSuite><con:properties><con:property><con:name>host</con:name><con:value/></con:property><con:property><con:name>username</con:name><con:value>soapui.analytics@telerik.local</con:value></con:property><con:property><con:name>password</con:name><con:value>12345</con:value></con:property><con:property><con:name>tapHost</con:name><con:value>https://testtap.telerik.com</con:value></con:property><con:property><con:name>accesstoken</con:name><con:value><![CDATA[WRAP access_token=http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2fname=soapui.analytics%40telerik.local&http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2femailaddress=soapui.analytics%40telerik.local&http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2fprivatepersonalidentifier=b7bc9706-b12a-432f-8320-393c8e99d415&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fuserid=b7bc9706-b12a-432f-8320-393c8e99d415&http%3a%2f%2fschemas.telerik.com%2f2013%2f05%2fidentity%2fclaims%2fcrmuserid=1716629&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fdomain=&http%3a%2f%2fschemas.telerik.com%2f2012%2f03%2fidentity%2fclaims%2fdomain=&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fissuedate=2014-04-28+16%3a26%3a02Z&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fstatus=1&http%3a%2f%2fschemas.sitefinity.com%2fws%2f2011%2f06%2fidentity%2fclaims%2fidentityprovider=Telerik&http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2fgivenname=SoapUI&http%3a%2f%2fschemas.xmlsoap.org%2fws%2f2005%2f05%2fidentity%2fclaims%2fsurname=Test+User&TokenId=57d500f8-b291-448d-85b9-5a1d734f236c&Issuer=https%3a%2f%2ftesttfis.telerik.com%2fAuthenticate%2fWRAPv0.9&Audience=uri%3aappshell&ExpiresOn=1398705962&HMACSHA256=VWH6TuTPv2azRWjJeS00ZC1ksNGQkKSskMei6pZfSPc%3d]]></con:value></con:property><con:property><con:name>accountID</con:name><con:value>ab40d5ed-b1b0-465a-8790-d9aa97e6e442</con:value></con:property><con:property><con:name>maxPollCount</con:name><con:value>20</con:value></con:property></con:properties><con:wssContainer/><con:oAuth2ProfileContainer/><con:sensitiveInformation/></con:soapui-project>
